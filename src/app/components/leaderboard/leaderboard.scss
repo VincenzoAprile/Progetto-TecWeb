@@ -1,0 +1,126 @@
+.main-wrapper {
+  min-height: 100vh;
+  background-color: #0f172a;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+}
+
+.leaderboard-card {
+  width: 100%;
+  max-width: 1000px;
+  background-color: #1e293b;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  border: 1px solid #334155;
+
+  .header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    h2 { color: #f8fafc; font-size: 2rem; margin-bottom: 0.5rem; }
+    p { color: #94a3b8; margin: 0; }
+  }
+
+  .separator-line {
+    height: 1px;
+    background: linear-gradient(to right, transparent, #334155, transparent);
+    margin-bottom: 2rem;
+  }
+}
+
+.table-container {
+  max-height: 500px;
+  overflow-y: auto;
+  margin-bottom: 2rem;
+  border-radius: 8px;
+  background-color: #0f172a;
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    color: #e2e8f0;
+
+    th {
+      background-color: #334155;
+      padding: 1rem;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #94a3b8;
+      position: sticky;
+      top: 0;
+    }
+
+    td {
+      padding: 1rem;
+      border-bottom: 1px solid #1e293b;
+      font-size: 0.95rem;
+    }
+
+    .date-cell { color: #64748b; font-size: 0.85rem; }
+    .title-cell { color: #3b82f6; font-weight: 500; }
+
+    .badge {
+      padding: 0.25rem 0.6rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      background: rgba(245, 158, 11, 0.1);
+      color: #f59e0b;
+      border: 1px solid #f59e0b;
+
+      &.win {
+        background: rgba(16, 185, 129, 0.1);
+        color: #10b981;
+        border: 1px solid #10b981;
+      }
+    }
+  }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 4rem 1rem;
+  color: #64748b;
+  .btn-play-now {
+    margin-top: 1.5rem;
+    padding: 0.8rem 2rem;
+    background-color: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    &:hover { background-color: #2563eb; }
+  }
+}
+
+.footer-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  .btn-back {
+    background: transparent;
+    border: 1px solid #334155;
+    color: #94a3b8;
+    padding: 0.7rem 1.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    &:hover { background: #334155; color: white; }
+  }
+
+  .btn-clear {
+    background: transparent;
+    border: 1px solid #ef4444;
+    color: #ef4444;
+    padding: 0.7rem 1.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    &:hover { background: #ef4444; color: white; }
+  }
+}
