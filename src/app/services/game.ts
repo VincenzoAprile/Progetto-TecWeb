@@ -49,4 +49,28 @@ export class GameService {
       console.error('Errore nella cancellazione della partita su server:', error);
     }
   }
+
+  // NUOVO METODO: Salva la partita conclusa nel database (tabella match_history)
+  async finishGame(username: string, punteggio: number, dettagli: any = {}): Promise<boolean> {
+    try {
+      console.log('Inviando partita conclusa al database per:', username);
+      const response = await fetch(`${this.apiUrl}/finish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, punteggio, dettagli })
+      });
+      
+      if (!response.ok) {
+        const errData = await response.json();
+        console.error('Il server ha rifiutato il salvataggio:', errData.error);
+        return false;
+      }
+
+      console.log('Partita conclusa salvata correttamente nel DB storico.');
+      return true;
+    } catch (error) {
+      console.error('Errore di rete nel salvataggio della partita conclusa:', error);
+      return false;
+    }
+  }
 }
