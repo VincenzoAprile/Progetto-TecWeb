@@ -75,10 +75,21 @@ export class LeaderboardService {
     }
   }
 
-  // Pulisce la leaderboard locale
-  clearLeaderboard(): void {
-    localStorage.removeItem('wiki_matches');
-    console.log('Leaderboard locale resettata.');
+  // AGGIORNATO: Ora invia una richiesta DELETE reale al database per azzerare la classifica
+  async clearLeaderboard(): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.apiUrl}/leaderboard/clear`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        console.log('Classifica azzerata con successo nel Database PostgreSQL.');
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Errore durante il reset della classifica nel DB:', error);
+      return false;
+    }
   }
 
   // Calcola la classifica leggendo i match asincroni dal DB
@@ -87,7 +98,7 @@ export class LeaderboardService {
     const userStats: { [username: string]: { totalSeconds: number, wonCount: number } } = {};
 
     allMatches.forEach(match => {
-      if (!match.username) return;
+      if (!match || !match.username) return;
       
       const userTrimmed = match.username.trim();
       const userLower = userTrimmed.toLowerCase();
@@ -107,7 +118,9 @@ export class LeaderboardService {
         userStats[userTrimmed] = { totalSeconds: 0, wonCount: 0 };
       }
 
-      if (match.won) {
+      const hasWon = match.won === true || (match.won as any) === 'true';
+
+      if (hasWon) {
         userStats[userTrimmed].wonCount++;
         userStats[userTrimmed].totalSeconds += this.timeToSeconds(match.time);
       }

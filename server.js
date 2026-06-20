@@ -166,7 +166,6 @@ app.post('/api/game/finish', async (req, res) => {
 // --- 7. API LEADERBOARD / CRONOLOGIA (STORICO COMPLETO STRUTTURATO) ---
 app.get('/api/leaderboard', async (req, res) => {
     try {
-        // Estraiamo i record piatti ordinati dai più freschi
         const queryText = `
             SELECT id, username, category, title, attempts, time_spent, won, preview_text, data_partita
             FROM match_history
@@ -177,6 +176,19 @@ app.get('/api/leaderboard', async (req, res) => {
     } catch (error) {
         console.error("Errore nel recupero della classifica strutturata:", error.message);
         return res.status(500).json({ error: 'Errore nel recupero dei dati storici.' });
+    }
+});
+
+// --- 8. API AZZERA CLASSIFICA (NUOVA) ---
+app.delete('/api/leaderboard/clear', async (req, res) => {
+    try {
+        // Elimina fisicamente tutti i record dalla tabella dello storico
+        await pool.query('DELETE FROM match_history;');
+        console.log('Classifica azzerata con successo nel database PostgreSQL.');
+        return res.status(200).json({ message: 'Classifica azzerata con successo nel database.' });
+    } catch (error) {
+        console.error("Errore durante l'azzeramento della classifica:", error.message);
+        return res.status(500).json({ error: 'Errore interno del server durante la cancellazione.' });
     }
 });
 

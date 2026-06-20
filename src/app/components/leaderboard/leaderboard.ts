@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core'; // AGGIUNTO ChangeDetectorRef
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core'; 
 import { Router } from '@angular/router';
 import { LeaderboardService, LeaderboardRow } from '../../services/leaderboard';
 import { CommonModule } from '@angular/common';
@@ -18,13 +18,13 @@ export class Leaderboard implements OnInit {
   constructor(
     private leaderboardService: LeaderboardService,
     private router: Router,
-    private cdr: ChangeDetectorRef // AGGIUNTO QUI
+    private cdr: ChangeDetectorRef 
   ) {
     const navigation = this.router.getCurrentNavigation();
     if (navigation && navigation.extras.state) {
       if (navigation.extras.state['username']) {
         this.username = navigation.extras.state['username'];
-        // Salviamolo nel sessionStorage così se premi F5 non lo perdi!
+        // Salviamo nel sessionStorage così se premi F5 non lo perdi!
         sessionStorage.setItem('current_username', this.username);
       }
       if (navigation.extras.state['isGuest'] !== undefined) {
@@ -65,11 +65,25 @@ export class Leaderboard implements OnInit {
     });
   }
 
-  clearHistory() {
-    if (confirm('Sei sicuro di voler resettare la classifica cancellando tutti i dati?')) {
-      this.leaderboardService.clearLeaderboard();
-      this.leaderboardRows = [];
-      this.cdr.detectChanges();
+  // AGGIORNATO: Diventa async per attendere la risposta di cancellazione da PostgreSQL
+  async clearHistory() {
+    if (confirm('Sei sicuro di voler resettare la classifica cancellando tutti i dati dal database?')) {
+      try {
+        // Attendiamo la conferma dell'avvenuta cancellazione sul backend
+        const success = await this.leaderboardService.clearLeaderboard();
+        
+        if (success) {
+          // Svuotiamo l'interfaccia a schermo solo se il DB si è svuotato con successo
+          this.leaderboardRows = [];
+          this.cdr.detectChanges();
+          console.log('Interfaccia grafica della classifica azzerata.');
+        } else {
+          alert('Si è verificato un errore durante l\'azzeramento della classifica sul server.');
+        }
+      } catch (error) {
+        console.error('Errore durante la gestione della cancellazione:', error);
+        alert('Impossibile connettersi al server per azzerare la classifica.');
+      }
     }
   }
 }
