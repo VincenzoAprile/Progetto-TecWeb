@@ -64,26 +64,4 @@ export class Leaderboard implements OnInit {
       } 
     });
   }
-
-  // AGGIORNATO: Diventa async per attendere la risposta di cancellazione da PostgreSQL
-  async clearHistory() {
-    if (confirm('Sei sicuro di voler resettare la classifica cancellando tutti i dati dal database?')) {
-      try {
-        // Attendiamo la conferma dell'avvenuta cancellazione sul backend
-        const success = await this.leaderboardService.clearLeaderboard();
-        
-        if (success) {
-          // Svuotiamo l'interfaccia a schermo solo se il DB si è svuotato con successo
-          this.leaderboardRows = [];
-          this.cdr.detectChanges();
-          console.log('Interfaccia grafica della classifica azzerata.');
-        } else {
-          alert('Si è verificato un errore durante l\'azzeramento della classifica sul server.');
-        }
-      } catch (error) {
-        console.error('Errore durante la gestione della cancellazione:', error);
-        alert('Impossibile connettersi al server per azzerare la classifica.');
-      }
-    }
-  }
 }

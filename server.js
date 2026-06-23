@@ -36,12 +36,26 @@ app.post('/api/register', async (req, res) => {
     }
 
     try {
-        const userCheck = await pool.query('SELECT * FROM users WHERE LOWER(username) = LOWER($1)', [username]);
+        // PREPARED STATEMENT: Controllo esistenza utente
+        const checkUserQuery = {
+            name: 'check-user-exists',
+            text: 'SELECT * FROM users WHERE LOWER(username) = LOWER($1)',
+            values: [username]
+        };
+        const userCheck = await pool.query(checkUserQuery);
+        
         if (userCheck.rows.length > 0) {
             return res.status(400).json({ error: 'Questo nome utente è già registrato.' });
         }
 
-        await pool.query('INSERT INTO users (username, password) VALUES ($1, $2)', [username, password]);
+        // PREPARED STATEMENT: Inserimento nuovo utente
+        const insertUserQuery = {
+            name: 'insert-new-user',
+            text: 'INSERT INTO users (username, password) VALUES ($1, $2)',
+            values: [username, password]
+        };
+        await pool.query(insertUserQuery);
+        
         console.log(`Nuovo utente registrato nel DB: ${username}`);
         return res.json({ message: 'Registrazione completata con successo!' });
     } catch (error) {
@@ -58,7 +72,14 @@ app.post('/api/login', async (req, res) => {
     }
 
     try {
-        const result = await pool.query('SELECT * FROM users WHERE LOWER(username) = LOWER($1) AND password = $2', [username, password]);
+        // PREPARED STATEMENT: Verifica credenziali login
+        const loginQuery = {
+            name: 'user-login',
+            text: 'SELECT * FROM users WHERE LOWER(username) = LOWER($1) AND password = $2',
+            values: [username, password]
+        };
+        const result = await pool.query(loginQuery);
+        
         if (result.rows.length === 0) {
             return res.status(401).json({ error: 'Credenziali errate o utente non registrato.' });
         }
@@ -81,13 +102,19 @@ app.post('/api/game/save', async (req, res) => {
     }
 
     try {
-        const queryText = `
-            INSERT INTO games (username, game_data) 
-            VALUES ($1, $2) 
-            ON CONFLICT (username) 
-            DO UPDATE SET game_data = EXCLUDED.game_data;
-        `;
-        await pool.query(queryText, [username, JSON.stringify(gameState)]);
+        // PREPARED STATEMENT: Upsert della partita in corso
+        const saveGameQuery = {
+            name: 'upsert-active-game',
+            text: `
+                INSERT INTO games (username, game_data) 
+                VALUES ($1, $2) 
+                ON CONFLICT (username) 
+                DO UPDATE SET game_data = EXCLUDED.game_data;
+            `,
+            values: [username, JSON.stringify(gameState)]
+        };
+        await pool.query(saveGameQuery);
+        
         console.log(`Partita salvata nel DB per l'utente: ${username}`);
         return res.json({ message: 'Stato della partita salvato con successo.' });
     } catch (error) {
@@ -101,7 +128,14 @@ app.get('/api/game/load/:username', async (req, res) => {
     const username = req.params.username;
 
     try {
-        const result = await pool.query('SELECT game_data FROM games WHERE LOWER(username) = LOWER($1)', [username]);
+        // PREPARED STATEMENT: Caricamento partita attiva
+        const loadGameQuery = {
+            name: 'load-active-game',
+            text: 'SELECT game_data FROM games WHERE LOWER(username) = LOWER($1)',
+            values: [username]
+        };
+        const result = await pool.query(loadGameQuery);
+        
         if (result.rows.length === 0) {
             return res.status(404).json({ message: 'Nessuna partita in corso trovata per questo utente.' });
         }
@@ -119,7 +153,14 @@ app.delete('/api/game/clear/:username', async (req, res) => {
     const username = req.params.username;
 
     try {
-        await pool.query('DELETE FROM games WHERE LOWER(username) = LOWER($1)', [username]);
+        // PREPARED STATEMENT: Cancellazione partita attiva
+        const deleteGameQuery = {
+            name: 'delete-active-game',
+            text: 'DELETE FROM games WHERE LOWER(username) = LOWER($1)',
+            values: [username]
+        };
+        await pool.query(deleteGameQuery);
+        
         console.log(`Partita attiva rimossa dal DB per l'utente: ${username}`);
         return res.json({ message: 'Partita attiva resettata.' });
     } catch (error) {
@@ -128,7 +169,7 @@ app.delete('/api/game/clear/:username', async (req, res) => {
     }
 });
 
-// --- 6. API SALVA PARTITA CONCLUSA (STORICO NUOVO REGOLE) ---
+// --- 6. API SALVA PARTITA CONCLUSA (DOPPIO SALVATAGGIO SEPARATO) ---
 app.post('/api/game/finish', async (req, res) => {
     const { username, dettagli } = req.body;
 
@@ -137,54 +178,104 @@ app.post('/api/game/finish', async (req, res) => {
     }
 
     try {
-        // Estraiamo i campi direttamente dall'oggetto passato da Angular
         const { category, title, attempts, time, won, previewText } = dettagli;
+        const userTrimmed = username.trim();
+        const userLower = userTrimmed.toLowerCase();
 
-        const queryText = `
-            INSERT INTO match_history (username, category, title, attempts, time_spent, won, preview_text) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7);
-        `;
+        // [1] PREPARED STATEMENT: Salva SEMPRE nella raccolta pubblica globale (per tutti, ospiti inclusi)
+        const insertCollectionQuery = {
+            name: 'insert-game-collection',
+            text: `
+                INSERT INTO game_collection (username, category, title, attempts, time_spent, won, preview_text) 
+                VALUES ($1, $2, $3, $4, $5, $6, $7);
+            `,
+            values: [
+                userTrimmed || 'Giocatore', 
+                category || '', 
+                title || 'Titolo Sconosciuto', 
+                attempts || 0, 
+                time || '00:00', 
+                won ?? false, 
+                previewText || ''
+            ]
+        };
+        await pool.query(insertCollectionQuery);
+
+        // [2] Se l'utente è autenticato E ha vinto, inserisce il record snello per il calcolo della classifica
+        const isRegistered = userLower !== '' && userLower !== 'giocatore' && userLower !== 'ospite' && userLower !== 'anonimo';
         
-        await pool.query(queryText, [
-            username, 
-            category || '', 
-            title || 'Titolo Sconosciuto', 
-            attempts || 0, 
-            time || '00:00', 
-            won ?? false, 
-            previewText || ''
-        ]);
+        if (isRegistered && won === true) {
+            const insertHistoryQuery = {
+                name: 'insert-match-history',
+                text: `
+                    INSERT INTO match_history (username, time_spent, won) 
+                    VALUES ($1, $2, $3);
+                `,
+                values: [userTrimmed, time || '00:00', true]
+            };
+            await pool.query(insertHistoryQuery);
+            console.log(`🏆 Record classifica aggiunto in match_history per l'utente registrato: ${userTrimmed}`);
+        }
 
-        console.log(`🏁 Partita di [${username}] salvata nello storico SQL. Esito: ${won ? 'VINTA' : 'PERSA'}`);
-        return res.json({ message: 'Partita archiviata nello storico con successo!' });
+        console.log(`🏁 Partita archiviata nella raccolta globale. Giocatore: [${userTrimmed}] - Esito: ${won ? 'VINTA' : 'PERSA'}`);
+        return res.json({ message: 'Partita archiviata con successo nelle rispettive tabelle!' });
     } catch (error) {
-        console.error("Errore nel salvataggio dello storico:", error.message);
+        console.error("Errore nel salvataggio della partita conclusa:", error.message);
         return res.status(500).json({ error: 'Errore interno del server durante il salvataggio.' });
     }
 });
 
-// --- 7. API LEADERBOARD / CRONOLOGIA (STORICO COMPLETO STRUTTURATO) ---
+// --- 7. API LEADERBOARD (LEGGE SOLO RECORD SNELLI DI MATCH_HISTORY) ---
 app.get('/api/leaderboard', async (req, res) => {
     try {
-        const queryText = `
-            SELECT id, username, category, title, attempts, time_spent, won, preview_text, data_partita
-            FROM match_history
-            ORDER BY data_partita DESC;
-        `;
-        const result = await pool.query(queryText);
+        // PREPARED STATEMENT: Recupera solo i dati essenziali per elaborare la classifica
+        const getLeaderboardQuery = {
+            name: 'fetch-leaderboard-stats',
+            text: `
+                SELECT id, username, time_spent, won, data_partita
+                FROM match_history
+                ORDER BY data_partita DESC;
+            `
+        };
+        const result = await pool.query(getLeaderboardQuery);
         return res.json(result.rows);
     } catch (error) {
-        console.error("Errore nel recupero della classifica strutturata:", error.message);
-        return res.status(500).json({ error: 'Errore nel recupero dei dati storici.' });
+        console.error("Errore nel recupero dati classifica:", error.message);
+        return res.status(500).json({ error: 'Errore nel recupero dei dati statistici.' });
     }
 });
 
-// --- 8. API AZZERA CLASSIFICA (NUOVA) ---
+// --- 8. API RACCOLTA PUBBLICA PARTITE (CRONOLOGIA COMPLETA PER TUTTI) ---
+app.get('/api/game-collection', async (req, res) => {
+    try {
+        // PREPARED STATEMENT: Recupera lo storico totale delle partite concluse con tutti i testi di anteprima
+        const getCollectionQuery = {
+            name: 'fetch-public-game-collection',
+            text: `
+                SELECT id, username, category, title, attempts, time_spent, won, preview_text, data_partita
+                FROM game_collection
+                ORDER BY data_partita DESC;
+            `
+        };
+        const result = await pool.query(getCollectionQuery);
+        return res.json(result.rows);
+    } catch (error) {
+        console.error("Errore nel recupero della raccolta partite:", error.message);
+        return res.status(500).json({ error: 'Errore nel recupero della raccolta pubblica.' });
+    }
+});
+
+// --- 9. API AZZERA SOLO LA CLASSIFICA ---
 app.delete('/api/leaderboard/clear', async (req, res) => {
     try {
-        // Elimina fisicamente tutti i record dalla tabella dello storico
-        await pool.query('DELETE FROM match_history;');
-        console.log('Classifica azzerata con successo nel database PostgreSQL.');
+        // PREPARED STATEMENT: Svuota la classifica utenti, ma NON tocca la raccolta pubblica globale
+        const clearLeaderboardQuery = {
+            name: 'clear-match-history',
+            text: 'DELETE FROM match_history;'
+        };
+        await pool.query(clearLeaderboardQuery);
+        
+        console.log('Classifica utenti azzerata. La raccolta pubblica game_collection è rimasta intatta.');
         return res.status(200).json({ message: 'Classifica azzerata con successo nel database.' });
     } catch (error) {
         console.error("Errore durante l'azzeramento della classifica:", error.message);

@@ -27,26 +27,26 @@ export class LeaderboardService {
   constructor() { }
 
   // Scarica lo storico dei match dal database PostgreSQL
-  async getMatches(): Promise<GameMatch[]> {
+async getMatches(): Promise<GameMatch[]> {
     try {
-      const response = await fetch(`${this.apiUrl}/leaderboard`);
+      // AGGIORNATO: Ora punta alla raccolta globale di tutte le partite
+      const response = await fetch(`${this.apiUrl}/game-collection`);
       if (!response.ok) return [];
       
       const rows = await response.json();
       
-      // Mappiamo le colonne relazionali del DB nel formato GameMatch di Angular
       return rows.map((r: any) => ({
         username: r.username,
         category: r.category || '',
         title: r.title || '',
         attempts: r.attempts || 0,
-        time: r.time_spent || '00:00', // Prende correttamente time_spent da Postgres
+        time: r.time_spent || '00:00',
         won: r.won ?? false,
-        previewText: r.preview_text || '', // Traduce in CamelCase per l'HTML
+        previewText: r.preview_text || '',
         date: r.data_partita ? new Date(r.data_partita).toLocaleString('it-IT') : ''
       }));
     } catch (error) {
-      console.error('Errore nel recupero dei match dal database:', error);
+      console.error('Errore nel recupero dei match dalla raccolta globale:', error);
       return [];
     }
   }
@@ -72,23 +72,6 @@ export class LeaderboardService {
       console.log('Match inviato correttamente al Database storico.');
     } catch (error) {
       console.error('Errore durante il salvataggio del match nel DB:', error);
-    }
-  }
-
-  // AGGIORNATO: Ora invia una richiesta DELETE reale al database per azzerare la classifica
-  async clearLeaderboard(): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.apiUrl}/leaderboard/clear`, {
-        method: 'DELETE'
-      });
-      if (response.ok) {
-        console.log('Classifica azzerata con successo nel Database PostgreSQL.');
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Errore durante il reset della classifica nel DB:', error);
-      return false;
     }
   }
 
