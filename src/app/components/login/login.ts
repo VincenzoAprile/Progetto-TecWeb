@@ -65,6 +65,16 @@ export class LoginComponent {
       const result = await this.authService.loginUser(credentials);
       if (result.success) {
         console.log('Login effettuato con successo sul server!', result.username);
+        
+        // --- SALVATAGGIO CON CONTROLLO STRINGA DI TIPOSCRIPT ---
+        if (result.token !== undefined) {
+          localStorage.setItem('token', result.token);
+        }
+        if (result.username !== undefined) {
+          localStorage.setItem('username', result.username);
+        }
+        // ----------------------------------------------------
+
         this.router.navigate(['/main-menu'], { state: { isGuest: false, username: result.username } }); 
       } else {
         alert(result.error || 'Credenziali errate.');
@@ -74,6 +84,11 @@ export class LoginComponent {
 
   handleGuestLogin() {
     console.log('Accesso come utente temporaneo/guest richiesto.');
+    
+    // Puliamo eventuali rimasugli di vecchi token se si accede come ospite
+    localStorage.removeItem('token');
+    localStorage.setItem('username', 'Ospite');
+
     this.router.navigate(['/main-menu'], { state: { isGuest: true, username: 'Ospite' } });
   }
 }

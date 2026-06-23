@@ -1,10 +1,14 @@
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
+const jwt = require('jsonwebtoken'); // <-- AGGIUNTO JWT
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Chiave segreta per firmare i token JWT (usa quella nel .env o una di fallback)
+const JWT_SECRET = process.env.JWT_SECRET || 'super_segreto_omg_123!';
 
 // Configurazione dei permessi (CORS) e lettura JSON
 app.use(cors({ origin: 'http://localhost:4200', credentials: true }));
@@ -27,6 +31,24 @@ pool.query('SELECT NOW()', (err, res) => {
         console.log("Connessione a PostgreSQL riuscita! Il database risponde correttamente.");
     }
 });
+
+// --- MIDDLEWARE DI VERIFICA JWT ---
+function autenticaToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Estrae il token da "Bearer TOKEN"
+
+    if (!token) {
+        return res.status(401).json({ error: 'Accesso negato. Token mancante.' });
+    }
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) {
+            return res.status(403).json({ error: 'Token non valido o scaduto.' });
+        }
+        req.user = user; // Inserisce i dati decodificati del token (es. username) nella richiesta
+        next();
+    });
+}
 
 // --- 1. API REGISTRAZIONE ---
 app.post('/api/register', async (req, res) => {
@@ -64,7 +86,7 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
-// --- 2. API LOGIN ---
+// --- 2. API LOGIN (AGGIORNATA CON GENERAZIONE JWT) ---
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -84,8 +106,19 @@ app.post('/api/login', async (req, res) => {
             return res.status(401).json({ error: 'Credenziali errate o utente non registrato.' });
         }
 
-        console.log(`Login effettuato con successo da: ${username}`);
-        return res.json({ message: 'Login autorizzato', username: result.rows[0].username });
+        const dbUsername = result.rows[0].username;
+
+        // GENERAZIONE TOKEN JWT (Validità 2 ore)
+        const token = jwt.sign({ username: dbUsername }, JWT_SECRET, { expiresIn: '2h' });
+
+        console.log(`Login effettuato con successo da: ${dbUsername} (JWT Emesso)`);
+        
+        // Restituiamo sia l'username sia il Token JWT ad Angular
+        return res.json({ 
+            message: 'Login autorizzato', 
+            username: dbUsername,
+            token: token 
+        });
     } catch (error) {
         console.error("Errore durante il login:", error.message);
         return res.status(500).json({ error: 'Errore durante il login.' });
@@ -169,18 +202,18 @@ app.delete('/api/game/clear/:username', async (req, res) => {
     }
 });
 
-// --- 6. API SALVA PARTITA CONCLUSA (DOPPIO SALVATAGGIO SEPARATO) ---
-app.post('/api/game/finish', async (req, res) => {
-    const { username, dettagli } = req.body;
+// --- 6. API SALVA PARTITA CONCLUSA (PROTETTA DA JWT) ---
+app.post('/api/game/finish', autenticaToken, async (req, res) => {
+    const { dettagli } = req.body;
+    const username = req.user.username; // Estraiamo l'utente sicuro e verificato dal JWT!
 
-    if (!username || !dettagli) {
+    if (!dettagli) {
         return res.status(400).json({ error: 'Dati incompleti per salvare la partita.' });
     }
 
     try {
         const { category, title, attempts, time, won, previewText } = dettagli;
         const userTrimmed = username.trim();
-        const userLower = userTrimmed.toLowerCase();
 
         // [1] PREPARED STATEMENT: Salva SEMPRE nella raccolta pubblica globale (per tutti, ospiti inclusi)
         const insertCollectionQuery = {
@@ -201,10 +234,8 @@ app.post('/api/game/finish', async (req, res) => {
         };
         await pool.query(insertCollectionQuery);
 
-        // [2] Se l'utente è autenticato E ha vinto, inserisce il record snello per il calcolo della classifica
-        const isRegistered = userLower !== '' && userLower !== 'giocatore' && userLower !== 'ospite' && userLower !== 'anonimo';
-        
-        if (isRegistered && won === true) {
+        // [2] Se l'utente è autenticato (lo è per via del JWT) E ha vinto, inserisce il record snello per il calcolo della classifica
+        if (won === true) {
             const insertHistoryQuery = {
                 name: 'insert-match-history',
                 text: `
@@ -217,7 +248,7 @@ app.post('/api/game/finish', async (req, res) => {
             console.log(`🏆 Record classifica aggiunto in match_history per l'utente registrato: ${userTrimmed}`);
         }
 
-        console.log(`🏁 Partita archiviata nella raccolta globale. Giocatore: [${userTrimmed}] - Esito: ${won ? 'VINTA' : 'PERSA'}`);
+        console.log(`🏁 Partita archiviata via JWT. Giocatore: [${userTrimmed}] - Esito: ${won ? 'VINTA' : 'PERSA'}`);
         return res.json({ message: 'Partita archiviata con successo nelle rispettive tabelle!' });
     } catch (error) {
         console.error("Errore nel salvataggio della partita conclusa:", error.message);
@@ -265,25 +296,7 @@ app.get('/api/game-collection', async (req, res) => {
     }
 });
 
-// --- 9. API AZZERA SOLO LA CLASSIFICA ---
-app.delete('/api/leaderboard/clear', async (req, res) => {
-    try {
-        // PREPARED STATEMENT: Svuota la classifica utenti, ma NON tocca la raccolta pubblica globale
-        const clearLeaderboardQuery = {
-            name: 'clear-match-history',
-            text: 'DELETE FROM match_history;'
-        };
-        await pool.query(clearLeaderboardQuery);
-        
-        console.log('Classifica utenti azzerata. La raccolta pubblica game_collection è rimasta intatta.');
-        return res.status(200).json({ message: 'Classifica azzerata con successo nel database.' });
-    } catch (error) {
-        console.error("Errore durante l'azzeramento della classifica:", error.message);
-        return res.status(500).json({ error: 'Errore interno del server durante la cancellazione.' });
-    }
-});
-
 // Avvio del server
 app.listen(PORT, () => {
-    console.log(`Server Persistente (PostgreSQL) attivo su http://localhost:${PORT}`);
+    console.log(`Server Persistente (PostgreSQL + JWT) attivo su http://localhost:${PORT}`);
 });

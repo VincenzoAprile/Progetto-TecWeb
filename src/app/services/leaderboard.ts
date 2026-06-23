@@ -26,10 +26,14 @@ export class LeaderboardService {
 
   constructor() { }
 
-  // Scarica lo storico dei match dal database PostgreSQL
-async getMatches(): Promise<GameMatch[]> {
+  // --- FUNZIONE DI UTILITÀ: Recupera il token JWT salvato ---
+  private getToken(): string | null {
+    return localStorage.getItem('token');
+  }
+
+  // Scarica lo storico dei match dal database PostgreSQL (Rimane pubblica)
+  async getMatches(): Promise<GameMatch[]> {
     try {
-      // AGGIORNATO: Ora punta alla raccolta globale di tutte le partite
       const response = await fetch(`${this.apiUrl}/game-collection`);
       if (!response.ok) return [];
       
@@ -51,31 +55,37 @@ async getMatches(): Promise<GameMatch[]> {
     }
   }
 
-  // Invia la struttura piatta (flat) che il server si aspetta dentro req.body.dettagli
+  // AGGIORNATO: Invia la partita allegando il Token JWT nell'header
   async saveMatch(match: GameMatch): Promise<void> {
     try {
+      const token = this.getToken(); // <-- Recupera il token dal localStorage
+
       await fetch(`${this.apiUrl}/game/finish`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // <-- PASSA IL TOKEN JWT QUI
+        },
         body: JSON.stringify({
-          username: match.username,
+          // NOTA: Non serve più inviare l'username qui nel body!
+          // Il server lo estrarrà autonomamente decodificando il JWT.
           dettagli: {
             category: match.category,
             title: match.title,
             attempts: match.attempts,
-            time: match.time, // Il server estrarrà 'time' da qui e lo salverà in 'time_spent'
+            time: match.time, 
             won: match.won,
             previewText: match.previewText
           }
         })
       });
-      console.log('Match inviato correttamente al Database storico.');
+      console.log('Match inviato correttamente con autenticazione JWT.');
     } catch (error) {
       console.error('Errore durante il salvataggio del match nel DB:', error);
     }
   }
 
-  // Calcola la classifica leggendo i match asincroni dal DB
+  // Calcola la classifica leggendo i match asincroni dal DB (Rimane pubblica)
   async getCalculatedLeaderboard(): Promise<LeaderboardRow[]> {
     const allMatches = await this.getMatches();
     const userStats: { [username: string]: { totalSeconds: number, wonCount: number } } = {};
@@ -86,7 +96,6 @@ async getMatches(): Promise<GameMatch[]> {
       const userTrimmed = match.username.trim();
       const userLower = userTrimmed.toLowerCase();
       
-      // Escludiamo i non autenticati o diciture generiche (case-insensitive) dal calcolo della classifica
       if (
         userLower === '' || 
         userLower === 'giocatore' || 
@@ -96,7 +105,6 @@ async getMatches(): Promise<GameMatch[]> {
         return; 
       }
 
-      // Inizializziamo l'oggetto usando il nome originale salvato (preservando le maiuscole dell'utente)
       if (!userStats[userTrimmed]) {
         userStats[userTrimmed] = { totalSeconds: 0, wonCount: 0 };
       }
@@ -121,14 +129,13 @@ async getMatches(): Promise<GameMatch[]> {
       };
     });
 
-    // Mostra in classifica solo chi ha vinto almeno una partita
     const filteredLeaderboard = leaderboard.filter(row => row.gamesWon > 0);
 
     return filteredLeaderboard.sort((a, b) => {
       if (b.gamesWon !== a.gamesWon) {
-        return b.gamesWon - a.gamesWon; // Più partite vinte = primo posto
+        return b.gamesWon - a.gamesWon;
       }
-      return a.averageSeconds - b.averageSeconds; // A parità di vittorie, tempo minore = migliore
+      return a.averageSeconds - b.averageSeconds;
     });
   }
 
