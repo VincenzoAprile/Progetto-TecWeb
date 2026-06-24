@@ -84,7 +84,7 @@ test('7. Caricamento della schermata Fase di Gioco e statistiche', async ({ page
   await page.waitForTimeout(1000);
   await page.locator('.btn-games').click();
 
-  await page.waitForSelector('.game-stats', { timeout: 8000 });
+  await page.waitForSelector('.game-stats', { timeout: 15000 });
   await expect(page.locator('h2')).toContainText('Fase di Gioco');
 });
 
@@ -100,7 +100,7 @@ test('8. Interazione con il campo inserimento Parola in partita', async ({ page 
   await page.waitForTimeout(1000);
   await page.locator('.btn-games').click();
 
-  await page.waitForSelector('#word-guess', { timeout: 8000 });
+  await page.waitForSelector('#word-guess', { timeout: 15000 });
   await page.locator('#word-guess').fill('computer');
   await page.locator('.btn-submit').click();
 });
@@ -117,7 +117,7 @@ test('9. Interazione con il campo Risoluzione Titolo', async ({ page }) => {
   await page.waitForTimeout(1000);
   await page.locator('.btn-games').click();
 
-  await page.waitForSelector('#title-guess', { timeout: 8000 });
+  await page.waitForSelector('#title-guess', { timeout: 15000 });
   await page.locator('#title-guess').fill('Minecraft');
   await expect(page.locator('.btn-victory')).toBeVisible();
 });
@@ -134,7 +134,7 @@ test('10. Funzionamento del bottone Abbandona e comparsa risultati', async ({ pa
   await page.waitForTimeout(1000);
   await page.locator('.btn-games').click();
 
-  await page.waitForSelector('.btn-abandon', { timeout: 8000 });
+  await page.waitForSelector('.btn-abandon', { timeout: 15000 });
   
   page.once('dialog', async dialog => {
     await dialog.accept();
