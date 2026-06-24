@@ -28,17 +28,17 @@ export class Game implements OnInit, OnDestroy {
   username: string = 'Giocatore'; 
 
   constructor(
-  private router: Router,
-  private cdr: ChangeDetectorRef,
-  private wikiService: Wikipedia,
-  private leaderboardService: LeaderboardService,
-  private gameService: GameService
-) {
-  const currentNavigation = this.router.getCurrentNavigation();
-  if (currentNavigation?.extras?.state?.['username']) {
-    this.username = currentNavigation.extras.state['username'];
+    private router: Router,
+    private cdr: ChangeDetectorRef,
+    private wikiService: Wikipedia,
+    private leaderboardService: LeaderboardService,
+    private gameService: GameService
+  ) {
+    const currentNavigation = this.router.getCurrentNavigation();
+    if (currentNavigation?.extras?.state?.['username']) {
+      this.username = currentNavigation.extras.state['username'];
+    }
   }
-}
 
   async ngOnInit() {
     const loggedInUsername = this.username; 
@@ -47,21 +47,26 @@ export class Game implements OnInit, OnDestroy {
       try {
         const savedGame = await this.gameService.getSavedGameState(loggedInUsername);
         
-        if (savedGame && confirm(`Bentornato ${loggedInUsername}! C'è una partita interrotta salvata sul server. Vuoi riprenderla?`)) {
-          this.gameState = 'PLAYING';
-          this.selectedCategoryName = savedGame.category;
-          this.originalTitle = savedGame.title;
-          this.originalText = savedGame.originalText;
-          this.obscuredText = savedGame.obscuredText;
-          this.attempts = savedGame.attempts;
-          this.secondsElapsed = savedGame.secondsElapsed;
-          this.guessedWords = savedGame.guessedWords;
-          
-          this.username = loggedInUsername; 
+        if (savedGame) {
+          if (confirm(`Bentornato ${loggedInUsername}! C'è una partita interrotta salvata sul server. Vuoi riprenderla?`)) {
+            this.gameState = 'PLAYING';
+            this.selectedCategoryName = savedGame.category;
+            this.originalTitle = savedGame.title;
+            this.originalText = savedGame.originalText;
+            this.obscuredText = savedGame.obscuredText;
+            this.attempts = savedGame.attempts;
+            this.secondsElapsed = savedGame.secondsElapsed;
+            this.guessedWords = savedGame.guessedWords;
+            
+            this.username = loggedInUsername; 
 
-          this.startTimer(); 
-          this.cdr.detectChanges();
-          return;
+            this.startTimer(); 
+            this.cdr.detectChanges();
+            return;
+          } else {
+            // --- MODIFICA 1: Se l'utente rifiuta di riprenderla, la cancelliamo dal server ---
+            await this.gameService.clearActiveGame(loggedInUsername);
+          }
         }
       } catch (error) {
         console.error("Errore nel recupero della sessione dal server:", error);
@@ -120,7 +125,7 @@ export class Game implements OnInit, OnDestroy {
     
     fetch(url)
       .then(response => response.json())
-      .then(data => {
+      .then(async data => { // Aggiunto async per gestire il salvataggio immediato
         const pages = data.query.pages;
         const pageId = Object.keys(pages)[0];
         
@@ -134,6 +139,26 @@ export class Game implements OnInit, OnDestroy {
         this.updateGameText();
         this.gameState = 'PLAYING';
         this.startTimer();
+
+        // --- MODIFICA 2: Salva immediatamente la partita appena avviata con 0 parole ---
+        if (this.username && this.username !== 'Anonimo' && this.username !== 'Ospite' && this.username !== 'Giocatore') {
+          try {
+            await this.gameService.saveCurrentGameState({
+              username: this.username,
+              category: this.selectedCategoryName,
+              title: this.originalTitle,
+              originalText: this.originalText,
+              obscuredText: this.obscuredText,
+              attempts: this.attempts,
+              secondsElapsed: this.secondsElapsed,
+              guessedWords: this.guessedWords
+            });
+            console.log('Partita iniziale memorizzata sul server.');
+          } catch (err) {
+            console.error('Errore nel salvataggio iniziale della partita:', err);
+          }
+        }
+
         this.cdr.detectChanges();
       })
       .catch(err => {
@@ -178,7 +203,7 @@ export class Game implements OnInit, OnDestroy {
         this.guessedWords.push(userGuess);
         this.updateGameText();
 
-        if (this.username && this.username !== 'Anonimo' && this.username !== 'Ospite') {
+        if (this.username && this.username !== 'Anonimo' && this.username !== 'Ospite' && this.username !== 'Giocatore') {
           this.gameService.saveCurrentGameState({
             username: this.username,
             category: this.selectedCategoryName,

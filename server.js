@@ -245,10 +245,10 @@ app.post('/api/game/finish', autenticaToken, async (req, res) => {
                 values: [userTrimmed, time || '00:00', true]
             };
             await pool.query(insertHistoryQuery);
-            console.log(`🏆 Record classifica aggiunto in match_history per l'utente registrato: ${userTrimmed}`);
+            console.log(`Record classifica aggiunto in match_history per l'utente registrato: ${userTrimmed}`);
         }
 
-        console.log(`🏁 Partita archiviata via JWT. Giocatore: [${userTrimmed}] - Esito: ${won ? 'VINTA' : 'PERSA'}`);
+        console.log(`Partita archiviata via JWT. Giocatore: [${userTrimmed}] - Esito: ${won ? 'VINTA' : 'PERSA'}`);
         return res.json({ message: 'Partita archiviata con successo nelle rispettive tabelle!' });
     } catch (error) {
         console.error("Errore nel salvataggio della partita conclusa:", error.message);
