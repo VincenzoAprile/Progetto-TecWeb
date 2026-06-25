@@ -8,12 +8,20 @@ export class GameService {
 
   constructor() {}
 
+  private getToken(): string | null {
+    const token = localStorage.getItem('token');
+    return token ? token.trim() : null;
+  }
+
   async saveCurrentGameState(state: any): Promise<void> {
     try {
-      console.log('Tentativo di salvataggio stato sul server per:', state.username);
+      const token = this.getToken();
       const response = await fetch(`${this.apiUrl}/save`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(state)
       });
       const data = await response.json();
@@ -25,14 +33,16 @@ export class GameService {
 
   async getSavedGameState(username: string): Promise<any> {
     try {
-      console.log('Richiesta caricamento partita dal server per:', username);
-      const response = await fetch(`${this.apiUrl}/load/${username}`);
-      
+      const token = this.getToken();
+      const response = await fetch(`${this.apiUrl}/load/${username}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (!response.ok) return null;
-      
-      const data = await response.json();
-      console.log('Dati partita caricati dal server:', data);
-      return data;
+      return await response.json();
     } catch (error) {
       console.error('Errore nel caricamento della partita da server:', error);
       return null;
@@ -41,32 +51,33 @@ export class GameService {
 
   async clearActiveGame(username: string): Promise<void> {
     try {
+      const token = this.getToken();
       await fetch(`${this.apiUrl}/clear/${username}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
-      console.log('Partita attiva cancellata dal server per:', username);
+      console.log('Partita attiva cancellata dal server.');
     } catch (error) {
       console.error('Errore nella cancellazione della partita su server:', error);
     }
   }
 
-  // NUOVO METODO: Salva la partita conclusa nel database (tabella match_history)
   async finishGame(username: string, punteggio: number, dettagli: any = {}): Promise<boolean> {
     try {
-      console.log('Inviando partita conclusa al database per:', username);
+      const token = this.getToken();
       const response = await fetch(`${this.apiUrl}/finish`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, punteggio, dettagli })
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ username, punteggio, detalles: dettagli })
       });
       
-      if (!response.ok) {
-        const errData = await response.json();
-        console.error('Il server ha rifiutato il salvataggio:', errData.error);
-        return false;
-      }
-
-      console.log('Partita conclusa salvata correttamente nel DB storico.');
+      if (!response.ok) return false;
+      console.log('Partita conclusa salvata nel DB storico.');
       return true;
     } catch (error) {
       console.error('Errore di rete nel salvataggio della partita conclusa:', error);

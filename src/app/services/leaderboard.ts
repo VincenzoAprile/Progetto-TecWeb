@@ -26,17 +26,24 @@ export class LeaderboardService {
 
   constructor() { }
 
-  // --- FUNZIONE DI UTILITÀ: Recupera il token JWT salvato ---
   private getToken(): string | null {
-    return localStorage.getItem('token');
+    const token = localStorage.getItem('token');
+    return token ? token.trim() : null;
   }
 
-  // Scarica lo storico dei match dal database PostgreSQL (Rimane pubblica)
+  // Scarica lo storico dei match allegando il JWT
   async getMatches(): Promise<GameMatch[]> {
     try {
-      const response = await fetch(`${this.apiUrl}/game-collection`);
-      if (!response.ok) return [];
+      const token = this.getToken();
+      const response = await fetch(`${this.apiUrl}/game-collection`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
       
+      if (!response.ok) return [];
       const rows = await response.json();
       
       return rows.map((r: any) => ({
@@ -50,25 +57,22 @@ export class LeaderboardService {
         date: r.data_partita ? new Date(r.data_partita).toLocaleString('it-IT') : ''
       }));
     } catch (error) {
-      console.error('Errore nel recupero dei match dalla raccolta globale:', error);
+      console.error('Errore nel recupero dei match:', error);
       return [];
     }
   }
 
-  // AGGIORNATO: Invia la partita allegando il Token JWT nell'header
+  // Invia la partita conclusa allegando il JWT
   async saveMatch(match: GameMatch): Promise<void> {
     try {
-      const token = this.getToken(); // <-- Recupera il token dal localStorage
-
+      const token = this.getToken();
       await fetch(`${this.apiUrl}/game/finish`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // <-- PASSA IL TOKEN JWT QUI
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          // NOTA: Non serve più inviare l'username qui nel body!
-          // Il server lo estrarrà autonomamente decodificando il JWT.
           dettagli: {
             category: match.category,
             title: match.title,
@@ -85,32 +89,22 @@ export class LeaderboardService {
     }
   }
 
-  // Calcola la classifica leggendo i match asincroni dal DB (Rimane pubblica)
   async getCalculatedLeaderboard(): Promise<LeaderboardRow[]> {
     const allMatches = await this.getMatches();
     const userStats: { [username: string]: { totalSeconds: number, wonCount: number } } = {};
 
     allMatches.forEach(match => {
       if (!match || !match.username) return;
-      
       const userTrimmed = match.username.trim();
       const userLower = userTrimmed.toLowerCase();
       
-      if (
-        userLower === '' || 
-        userLower === 'giocatore' || 
-        userLower === 'ospite' || 
-        userLower === 'anonimo'
-      ) {
-        return; 
-      }
+      if (['', 'giocatore', 'ospite', 'anonimo'].includes(userLower)) return;
 
       if (!userStats[userTrimmed]) {
         userStats[userTrimmed] = { totalSeconds: 0, wonCount: 0 };
       }
 
       const hasWon = match.won === true || (match.won as any) === 'true';
-
       if (hasWon) {
         userStats[userTrimmed].wonCount++;
         userStats[userTrimmed].totalSeconds += this.timeToSeconds(match.time);
@@ -120,7 +114,6 @@ export class LeaderboardService {
     const leaderboard: LeaderboardRow[] = Object.keys(userStats).map(username => {
       const stats = userStats[username];
       const avgSeconds = stats.wonCount > 0 ? Math.round(stats.totalSeconds / stats.wonCount) : 0;
-
       return {
         username: username,
         gamesWon: stats.wonCount,
@@ -129,12 +122,8 @@ export class LeaderboardService {
       };
     });
 
-    const filteredLeaderboard = leaderboard.filter(row => row.gamesWon > 0);
-
-    return filteredLeaderboard.sort((a, b) => {
-      if (b.gamesWon !== a.gamesWon) {
-        return b.gamesWon - a.gamesWon;
-      }
+    return leaderboard.filter(row => row.gamesWon > 0).sort((a, b) => {
+      if (b.gamesWon !== a.gamesWon) return b.gamesWon - a.gamesWon;
       return a.averageSeconds - b.averageSeconds;
     });
   }
@@ -142,16 +131,12 @@ export class LeaderboardService {
   private timeToSeconds(timeStr: string): number {
     if (!timeStr || !timeStr.includes(':')) return 0;
     const parts = timeStr.trim().split(':');
-    const minutes = parseInt(parts[0], 10) || 0;
-    const seconds = parseInt(parts[1], 10) || 0;
-    return (minutes * 60) + seconds;
+    return (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0);
   }
 
   private secondsToTime(totalSeconds: number): string {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
-    const minStr = minutes < 10 ? `0${minutes}` : `${minutes}`;
-    const secStr = seconds < 10 ? `0${seconds}` : `${seconds}`;
-    return `${minStr}:${secStr}`;
+    return `${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
   }
 }

@@ -48,10 +48,10 @@
         @if (submitted && loginForm.controls.pass.errors) {
           <div class="error-container">
             @if (loginForm.controls.pass.errors['required']) {
-              <span class="error-message"><span class="error-icon">⚠️</span> La password è obbligatoria.</span>
+              <span class="error-message">La password è obbligatoria.</span>
             }
             @if (loginForm.controls.pass.errors['minlength']) {
-              <span class="error-message"><span class="error-icon">⚠️</span> La password deve avere almeno 4 caratteri.</span>
+              <span class="error-message">La password deve avere almeno 4 caratteri.</span>
             }
           </div>
         }
