@@ -5,49 +5,55 @@
     <div class="card-header">
       @if (!isRegisterMode) {
         <h2>Accedi all'App</h2>
-        <p>Inserisci i tuoi dati per iniziare la sessione.</p>
+        <p>Inserisci i tuoi dati per iniziare la sessione</p>
       } @else {
         <h2>Crea un Account</h2>
-        <p>Registrati per salvare i tuoi progressi di gioco sul server.</p>
+        <p>Registrati per salvare i tuoi progressi di gioco sul server</p>
       }
     </div>
 
     <form onsubmit="event.preventDefault()" class="card-body">
       
       <div class="form-group">
-        <label>Username</label>
+        <label for="user-input">Username</label>
         <input 
           type="text" 
           placeholder="Il tuo username..." 
           class="input-field"
           oninput="document.getElementById('user-trigger').value = this.value"
           id="user-input"
+          autocomplete="username"
         />
         <input type="hidden" id="user-trigger" />
         
         @if (submitted && loginForm.controls.user.errors?.['required']) {
-          <span class="error-message">L'username è obbligatorio.</span>
+          <span class="error-message">
+            <span class="error-icon">⚠️</span> L'username è obbligatorio.
+          </span>
         }
       </div>
 
       <div class="form-group">
-        <label>Password</label>
+        <label for="pass-input">Password</label>
         <input 
           type="password" 
           placeholder="••••••••" 
           class="input-field" 
           oninput="document.getElementById('pass-trigger').value = this.value"
           id="pass-input"
+          autocomplete="current-password"
         />
         <input type="hidden" id="pass-trigger" />
         
         @if (submitted && loginForm.controls.pass.errors) {
-          @if (loginForm.controls.pass.errors['required']) {
-            <span class="error-message">La password è obbligatoria.</span>
-          }
-          @if (loginForm.controls.pass.errors['minlength']) {
-            <span class="error-message">La password deve avere almeno 4 caratteri.</span>
-          }
+          <div class="error-container">
+            @if (loginForm.controls.pass.errors['required']) {
+              <span class="error-message"><span class="error-icon">⚠️</span> La password è obbligatoria.</span>
+            }
+            @if (loginForm.controls.pass.errors['minlength']) {
+              <span class="error-message"><span class="error-icon">⚠️</span> La password deve avere almeno 4 caratteri.</span>
+            }
+          </div>
         }
       </div>
 

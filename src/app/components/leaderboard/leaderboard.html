@@ -22,14 +22,21 @@
           </thead>
           <tbody>
             @for (row of leaderboardRows; track $index) {
-              <tr [class.podium-first]="$index === 0" [class.user-current]="row.username === username">
+              <tr [class.podium-first]="$index === 0" 
+                  [class.podium-second]="$index === 1" 
+                  [class.podium-third]="$index === 2" 
+                  [class.user-current]="row.username === username">
                 <td class="position-cell">
-                  @if ($index === 0) {1}
-                  @else if ($index === 1) {2}
-                  @else if ($index === 2) {3}
-                  @else { {{ $index + 1 }}°}
+                  <span class="rank-badge">
+                    @if ($index === 0) {1}
+                    @else if ($index === 1) {2}
+                    @else if ($index === 2) {3}
+                    @else { {{ $index + 1 }}° }
+                  </span>
                 </td>
-                <td><strong>{{ row.username }}</strong></td>
+                <td class="user-cell">
+                  <strong class="username-text" [title]="row.username">{{ row.username }}</strong>
+                </td>
                 <td class="stat-cell">{{ row.gamesWon }}</td>
                 <td class="time-cell">{{ row.averageTime }}</td>
               </tr>

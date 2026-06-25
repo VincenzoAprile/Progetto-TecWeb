@@ -4,11 +4,12 @@ import { Wikipedia } from '../../services/wikipedia';
 import { LeaderboardService } from '../../services/leaderboard';
 import { GameService } from '../../services/game';
 import { GameResult } from '../game-result/game-result';
+import { CommonModule } from '@angular/common'; // IMPORTANTE: Aggiunto per poter usare le direttive base nell'HTML se servono
 
 @Component({
   selector: 'app-game',
   standalone: true,
-  imports: [GameResult],
+  imports: [GameResult, CommonModule], // Aggiunto CommonModule
   templateUrl: './game.html',
   styleUrl: './game.scss'
 })
@@ -26,6 +27,9 @@ export class Game implements OnInit, OnDestroy {
   obscuredText: string = '';
   guessedWords: string[] = [];
   username: string = 'Giocatore'; 
+
+  // Proprietà di comodo per esporre i token formattati all'HTML
+  processedTokensHTML: string[] = [];
 
   constructor(
     private router: Router,
@@ -61,10 +65,10 @@ export class Game implements OnInit, OnDestroy {
             this.username = loggedInUsername; 
 
             this.startTimer(); 
+            this.updateGameText(); // Rigenera i token grafici per l'HTML
             this.cdr.detectChanges();
             return;
           } else {
-            // --- MODIFICA 1: Se l'utente rifiuta di riprenderla, la cancelliamo dal server ---
             await this.gameService.clearActiveGame(loggedInUsername);
           }
         }
@@ -125,7 +129,7 @@ export class Game implements OnInit, OnDestroy {
     
     fetch(url)
       .then(response => response.json())
-      .then(async data => { // Aggiunto async per gestire il salvataggio immediato
+      .then(async data => {
         const pages = data.query.pages;
         const pageId = Object.keys(pages)[0];
         
@@ -140,7 +144,6 @@ export class Game implements OnInit, OnDestroy {
         this.gameState = 'PLAYING';
         this.startTimer();
 
-        // --- MODIFICA 2: Salva immediatamente la partita appena avviata con 0 parole ---
         if (this.username && this.username !== 'Anonimo' && this.username !== 'Ospite' && this.username !== 'Giocatore') {
           try {
             await this.gameService.saveCurrentGameState({
@@ -168,7 +171,10 @@ export class Game implements OnInit, OnDestroy {
       });
   }
 
-  private updateGameText() {
+  /**
+   * Aggiorna sia il testo oscurato completo che l'array di token strutturati per la resa grafica
+   */
+  updateGameText() {
     const tokens = this.originalText.split(/(\s+|,|\.|\(|\)|;|:|-|'|’)/);
     const processedTokens = tokens.map(token => {
       if (/^(\s+|,|\.|\(|\)|;|:|-|'|’)+$/.test(token)) return token;
@@ -183,7 +189,21 @@ export class Game implements OnInit, OnDestroy {
       const middleStars = '•'.repeat(token.length - 2);
       return `${firstLetter}${middleStars}${lastLetter}`;
     });
+    
+    this.processedTokensHTML = processedTokens; // Salviamo i token splittati per intercettarli uno ad uno nell'HTML
     this.obscuredText = processedTokens.join('');
+  }
+
+  /**
+   * Helper per capire se un token visualizzato fa parte delle parole sbloccate con successo
+   */
+  isTokenGuessed(token: string): boolean {
+    const cleanWord = token.trim().toLowerCase();
+    // Escludiamo punteggiatura, spazi o parole corte che di base non erano bloccate
+    if (!cleanWord || cleanWord.length <= 3 || /^(\s+|,|\.|\(|\)|;|:|-|'|’)+$/.test(cleanWord) || /^\d+$/.test(cleanWord)) {
+      return false;
+    }
+    return this.guessedWords.includes(cleanWord);
   }
 
   submitWord() {
