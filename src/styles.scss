@@ -1,1 +1,254 @@
-/* You can add global styles to this file, and also import other style files */
+/* ==========================================
+   RESET & VARIABILI GLOBALI (MANTENUTE)
+   ========================================== */
+:root {
+  --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  --card-bg: rgba(30, 41, 59, 0.7);
+  --card-border: rgba(255, 255, 255, 0.1);
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --accent-color: #38bdf8;
+  --radius: 16px;
+  --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background: var(--bg-gradient);
+  color: var(--text-main);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+/* ==========================================
+   LAYOUT FLESSIBILE PER TUTTI GLI SCHERMI
+   ========================================== */
+.login-wrapper, .main-wrapper {
+  width: 100%;
+  max-width: 1200px; /* Evita che l'app si disperda su monitor giganti UltraWide */
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+}
+
+/* LA CARD: Adattamento proporzionale */
+.login-card, .game-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 32px;
+  
+  /* Larghezza fluida basata sul viewport, ma con limiti rigidi */
+  width: 90vw;
+  max-width: 580px; 
+  
+  /* Impedisce il collasso se i testi interni sono lunghi */
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Griglia per le Categorie: si dispone su due colonne su PC, singola su Mobile */
+.category-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+/* ==========================================
+   INPUT E BOTTONI ADATTIVI
+   ========================================== */
+.form-group, .action-form, .title-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.input-field {
+  width: 100%;
+  padding: 14px 16px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 1rem;
+}
+
+button, .btn-submit, .btn-guest, .btn-cat {
+  width: 100%;
+  padding: 14px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+}
+
+/* Scatola Wikipedia fluida: si allunga in base all'altezza dello schermo */
+.wiki-text-box {
+  background: rgba(15, 23, 42, 0.8);
+  border-radius: 8px;
+  padding: 16px;
+  font-family: monospace;
+  line-height: 1.6;
+  /* Usa un'altezza proporzionale all'altezza dello schermo (vh) */
+  max-height: 35vh; 
+  min-height: 150px;
+  overflow-y: auto;
+  border-left: 4px solid var(--accent-color);
+}
+
+/* ==========================================
+   MEDIA QUERY: OTTIMIZZAZIONE PER MONITOR GIGANTI
+   ========================================== */
+@media (min-width: 1400px) {
+  .login-card, .game-card {
+    max-width: 640px; /* Leggermente più grande per non sembrare un francobollo su schermi 2K/4K */
+    padding: 40px;
+  }
+  h2 { font-size: 2.2rem; }
+}
+
+/* ==========================================
+   MEDIA QUERY: OTTIMIZZAZIONE PER TABLET (iPad/Galaxy)
+   ========================================== */
+@media (max-width: 768px) {
+  .login-wrapper, .main-wrapper {
+    padding: 16px;
+  }
+  .login-card, .game-card {
+    padding: 24px;
+  }
+  .category-buttons {
+    grid-template-columns: 1fr; /* Torna a colonna singola se lo spazio stringe */
+  }
+}
+
+/* ==========================================
+   MEDIA QUERY: SMARTPHONE (EFFETTO APP NATIVA FULL-SCREEN)
+   ========================================== */
+@media (max-width: 480px) {
+  body {
+    justify-content: flex-start;
+    align-items: center; /* FORZA la centratura orizzontale globale */
+    background: #0f172a; 
+  }
+  
+  .login-wrapper, .main-wrapper {
+    padding: 0; 
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center; /* Centra la card orizzontalmente nello schermo del telefono */
+    width: 100%;
+  }
+
+  .login-card, .game-card {
+    width: 100vw;      /* Occupa esattamente tutta la larghezza del display */
+    min-height: 100vh; /* Riempie interamente il display in altezza */
+    border-radius: 0;   
+    border: none;       
+    background: #0f172a; 
+    box-shadow: none;   
+    padding: 24px 20px; /* Padding simmetrico a destra e sinistra */
+    gap: 20px;          
+    
+    /* Assicura che i figli della card si allineino al centro o si estendano equamente */
+    display: flex;
+    flex-direction: column;
+    align-items: stretch; /* Obbliga input e bottoni a prendere tutta la larghezza disponibile */
+  }
+
+  h2 { 
+    font-size: 1.6rem; 
+    text-align: center; /* Centra il titolo */
+    margin-top: 10px;
+    width: 100%;
+  }
+
+  p {
+    text-align: center; /* Centra la descrizione */
+    margin-bottom: 16px;
+    width: 100%;
+  }
+
+  /* Campi di input */
+  .input-field {
+    width: 100%;
+    padding: 16px;
+    font-size: 1.05rem;
+    background: #1e293b; 
+    text-align: center; 
+  }
+
+  /* Pulsanti */
+  button, .btn-submit, .btn-guest, .btn-cat {
+    width: 100%; 
+    padding: 16px;
+    font-size: 1.05rem;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: center; 
+    align-items: center;
+  }
+
+  .category-buttons {
+    grid-template-columns: 1fr; 
+    width: 100%;
+  }
+
+  /* Adattamento testo Wikipedia */
+  .wiki-text-box { 
+    width: 100%;
+    max-height: 32vh; 
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 0.9rem;
+  }
+
+  /* ==========================================
+     STRATEGIA ANTITAGLIO PER LA CLASSIFICA
+     ========================================== */
+  .leaderboard-wrapper, .ranking-container, table, app-leaderboard {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important; /* Forza la comparsa dello scroll orizzontale solo dentro il modulo classifica */
+    display: block;   
+    -webkit-overflow-scrolling: touch; /* Scroll liscio e immediato su smartphone */
+    margin-bottom: 16px;
+  }
+
+  /* Ottimizzazione dimensioni testi e celle tabelle classifica */
+  tr, td, th, .leaderboard-row {
+    font-size: 0.85rem !important;
+    padding: 8px 6px !important;
+  }
+
+  /* Tronca i nomi utente se sono esageratamente lunghi per salvare spazio orizzontale */
+  .username-col, .player-name, td:first-child {
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
